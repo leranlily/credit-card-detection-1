@@ -19,6 +19,9 @@ edge = w//100
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 gray = cv2.GaussianBlur(gray, (3,3), 0)   # gaussian filtering
 ret, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)  #binary
+
+#when the background is brighter than foreground, use binary inverse
+#so that the value of background is 0 and foregroud if 255
 judge = 0
 if binary[0,0]==255:
     judge = judge + 1
@@ -29,7 +32,8 @@ if binary[h-1,0]==255:
 if binary[h-1,w-1]==255:
     judge = judge + 1
 if judge>=3:
-    ret, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    ret, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)  
+
 
 # Projection
 up = 0
@@ -41,11 +45,12 @@ maxw = 0
 threshold = 0.4
 hsum = np.sum(binary,axis=1)  # sum of each row
 
-for y in range (0,h):
+for y in range (0,h): #find the largest value in h column, which exist credit card 
     if (hsum[y]>maxh):
         maxh = hsum[y]
 
-
+#determine up and down edge of the credit card.
+#as there are noises, set a threshold
 for y in range(h-1, 0,-1):
     if (hsum[y])>maxh*threshold:
         down = y
@@ -57,8 +62,9 @@ for y in range(0, h):
         break
 
 wsum = np.sum(binary[up:down,:],axis=0) #sum of each column
-
-for x in range (0,w):
+# do same on each row
+#determine right and left edge of the credit card.
+for x in range (0,w): #
     if (wsum[x]>maxw):
         maxw = wsum[x]
 
@@ -72,11 +78,14 @@ for x in range(w-1, 0, -1):
         right = x
         break
 
+# add some pixel at the adge 
 right = min(w-1,right+edge)
 left = max(0,left-edge)
 up = max(0,up-edge)
 down = min(h-1,down+edge)
-        
+
+# as the ratio of width and height is 1.6 for credit card
+# when the ratio is far away from 1.6, inrease width or height to improve the results
 r = (right-left)/(down-up)
 if r<1.2:
     neww = int((down-up)*ratio)
@@ -113,12 +122,13 @@ elif r>1.9:
             down = h-1
             up = h - addh
 
-
+#extract the region and use canny edge detection
 dst = gray[up:down, left:right] 
 img_dst = cv2.Canny(dst, 100, 200)
+#find contours and down them
 image, contours, hierarchy = cv2.findContours(img_dst,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)  
 cv2.drawContours(img[up:down, left:right],contours,-1,(0,0,255),1)  
-cv2.imwrite("dst3.jpg",dst)   
+   
 cv2.imshow("result", img)
 cv2.imshow("1", binary)
 cv2.imshow("2", dst)
